@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Producción de Paletizado</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f6f8;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1360px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* --- Header --- */
+        header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            padding: 0 4px 24px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid #e2e4e9;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            letter-spacing: -0.02em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #d1d5db;
+            flex-shrink: 0;
+        }
+
+        .live-dot.connected {
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+            animation: pulse 2s infinite;
+        }
+
+        .live-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .date-range {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #6b7280;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        /* --- KPI Cards --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 28px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: border-color 0.2s ease;
+            border-top: 3px solid #e5e7eb;
+        }
+
+        .kpi-card:hover {
+            border-color: #c7cad1;
+        }
+
+        .kpi-card:nth-child(1) { border-top-color: #3b82f6; }  /* Total Pallets */
+        .kpi-card:nth-child(2) { border-top-color: #8b5cf6; }  /* Cantidad Total */
+        .kpi-card:nth-child(3) { border-top-color: #10b981; }  /* Promedio / Dia */
+        .kpi-card:nth-child(4) { border-top-color: #f59e0b; }  /* Pallets Enviados Hoy */
+        .kpi-card:nth-child(5) { border-top-color: #06b6d4; }  /* Productos Enviados Hoy */
+
+        .kpi-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .kpi-value {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+        }
+
+        .kpi-card:nth-child(1) .kpi-value { color: #3b82f6; }
+        .kpi-card:nth-child(2) .kpi-value { color: #8b5cf6; }
+        .kpi-card:nth-child(3) .kpi-value { color: #10b981; }
+        .kpi-card:nth-child(4) .kpi-value { color: #f59e0b; }
+        .kpi-card:nth-child(5) .kpi-value { color: #06b6d4; }
+
+        .kpi-icon {
+            display: none;
+        }
+
+        .kpi-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .kpi-indicator {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .kpi-indicator.up {
+            color: #15803d;
+            background: #f0fdf4;
+        }
+
+        .kpi-indicator.down {
+            color: #dc2626;
+            background: #fef2f2;
+        }
+
+        .kpi-indicator.neutral {
+            color: #6b7280;
+            background: #f3f4f6;
+        }
+
+        /* --- Filters --- */
+        .filter-section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin-bottom: 28px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-section label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .filter-section select {
+            padding: 7px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: #1a1a2e;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            appearance: auto;
+        }
+
+        .filter-section select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+        }
+
+        /* --- Flatpickr calendar overrides --- */
+        .date-input {
+            padding: 7px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: #1a1a2e;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            width: 110px;
+            text-align: center;
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+        }
+
+        .flatpickr-calendar {
+            font-family: 'Inter', sans-serif !important;
+            border-radius: 10px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e5e7eb !important;
+        }
+
+        .flatpickr-day.selected,
+        .flatpickr-day.startRange,
+        .flatpickr-day.endRange,
+        .flatpickr-day.selected:hover {
+            background: #6366f1 !important;
+            border-color: #6366f1 !important;
+        }
+
+        .flatpickr-day.inRange {
+            background: rgba(99,102,241,0.1) !important;
+            border-color: transparent !important;
+            box-shadow: -5px 0 0 rgba(99,102,241,0.1), 5px 0 0 rgba(99,102,241,0.1) !important;
+        }
+
+        .flatpickr-day.today {
+            border-color: #6366f1 !important;
+        }
+
+        .flatpickr-day.flatpickr-disabled {
+            color: #d1d5db !important;
+        }
+
+        .date-range-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .date-range-wrap .separator {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        /* --- Charts --- */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .chart-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 18px 20px;
+        }
+
+        .chart-card h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 10px;
+        }
+
+        .chart-card canvas {
+            max-height: 220px;
+        }
+
+        /* --- Table --- */
+        .table-container {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        .table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .table-container h3 {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0;
+        }
+
+        .btn-toggle-table {
+            padding: 6px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            color: #374151;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-toggle-table:hover {
+            background: #6366f1;
+            color: #fff;
+            border-color: #6366f1;
+        }
+
+        .btn-clear-filters {
+            padding: 7px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            color: #6b7280;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: auto;
+        }
+
+        .btn-clear-filters:hover {
+            background: #ef4444;
+            color: #fff;
+            border-color: #ef4444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #6b7280;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f1f3;
+            color: #374151;
+        }
+
+        tr:hover td {
+            background: #f9fafb;
+        }
+
+        /* --- Badges --- */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+
+        .badge-almacen {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .badge-trg {
+            background: #fff7ed;
+            color: #c2410c;
+        }
+
+        .badge-hv {
+            background: #faf5ff;
+            color: #7c3aed;
+        }
+
+        .badge-box {
+            background: #f0fdf4;
+            color: #15803d;
+        }
+
+        .badge-pedido {
+            background: #fefce8;
+            color: #a16207;
+        }
+
+        .badge-orden {
+            background: #ecfeff;
+            color: #0e7490;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 1024px) {
+            .kpi-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-section {
+                gap: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Dashboard de Produccion de Paletizado</h1>
+            <div class="header-right">
+                <span class="live-dot" id="liveDot"></span>
+                <p class="date-range" id="dateRange">Cargando...</p>
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Pallets</div>
+                <div class="kpi-value" id="totalPallets">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Cantidad Total</div>
+                <div class="kpi-value" id="totalQuantity">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Promedio / Dia</div>
+                <div class="kpi-value" id="avgPerDay">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Pallets Enviados Hoy</div>
+                <div class="kpi-row">
+                    <div class="kpi-value" id="sentToday">-</div>
+                    <span class="kpi-indicator neutral" id="todayIndicator">—</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Productos Enviados Hoy</div>
+                <div class="kpi-row">
+                    <div class="kpi-value" id="qtyToday">-</div>
+                    <span class="kpi-indicator neutral" id="qtyTodayIndicator">—</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <label>Fecha</label>
+            <div class="date-range-wrap">
+                <input type="text" id="filterDateFrom" class="date-input" placeholder="Desde" readonly>
+                <span class="separator">—</span>
+                <input type="text" id="filterDateTo" class="date-input" placeholder="Hasta" readonly>
+            </div>
+
+            <label>Destino</label>
+            <select id="filterDestination">
+                <option value="all">Todos</option>
+            </select>
+
+            <label>Condicion</label>
+            <select id="filterCondition">
+                <option value="all">Todas</option>
+            </select>
+
+            <label>Turno</label>
+            <select id="filterShift">
+                <option value="all">Todos</option>
+            </select>
+
+            <button class="btn-clear-filters" id="btnClearFilters" onclick="clearAllFilters()">Limpiar filtros</button>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Distribucion por Destino</h3>
+                <canvas id="destinationChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Distribucion por Condicion</h3>
+                <canvas id="conditionChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Pallets por Fecha</h3>
+                <canvas id="dateChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Cantidad por Destino</h3>
+                <canvas id="quantityDestChart"></canvas>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h3>Detalle de Pallets <span id="tableCount" style="color:#9ca3af; font-weight:400;"></span></h3>
+                <button class="btn-toggle-table" id="btnToggleTable" onclick="toggleTableView()">Ver todos</button>
+            </div>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>N. Pallet</th>
+                        <th>Cantidad</th>
+                        <th>Condicion</th>
+                        <th>Destino</th>
+                        <th>Fecha</th>
+                        <th>Turno</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Conexion en vivo con Google Sheets ---
+        const SHEET_ID = '1Su-CGdOPU-etXKoVXAKYx6qKhN92RFBiH-gLeN_XElk';
+        const SHEET_NAME = 'Formulario Escaneadores';
+        const REFRESH_INTERVAL = 60000;
+
+        Chart.register(ChartDataLabels);
+        // Desactivar datalabels por defecto, se activa por grafico
+        Chart.defaults.set('plugins.datalabels', { display: false });
+
+        let allData = [];
+        let charts = {};
+
+        // Normalizar condición: trim + uppercase para agrupar variantes
+        function normalizeCondition(val) {
+            if (!val) return '';
+            return val.trim().toUpperCase().replace(/\s+/g, ' ');
+        }
+
+        // ========== Metodo 1: fetch JSON via opensheet (datos completos) ==========
+        function loadViaFetch() {
+            const url = 'https://opensheet.elk.sh/' + SHEET_ID + '/' + encodeURIComponent(SHEET_NAME);
+            return fetch(url)
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function(rows) {
+                    if (!rows || !Array.isArray(rows) || rows.length === 0) throw new Error('Sin datos');
+                    processOpenSheetData(rows);
+                    return true;
+                });
+        }
+
+        function processOpenSheetData(rows) {
+            var keys = Object.keys(rows[0]);
+            var palletKey = keys.find(function(k) { return k.indexOf('Pallet') !== -1; }) || keys[1];
+            var qtyKey = keys.find(function(k) { return k.indexOf('Cantidad') !== -1 || k.indexOf('QTY') !== -1; }) || keys[2];
+            var condKey = keys.find(function(k) { return k.indexOf('Condici') !== -1; }) || keys[3];
+            var destKey = keys.find(function(k) { return k.indexOf('d\u00f3nde') !== -1 || k.indexOf('donde') !== -1; }) || keys[4];
+            var fechaKey = keys.find(function(k) { return k.indexOf('Fecha') !== -1; }) || keys[5];
+            var turnoKey = keys.find(function(k) { return k.indexOf('Turno') !== -1; }) || keys[6];
+            var tsKey = keys.find(function(k) { return k.indexOf('Timestamp') !== -1; }) || keys[0];
+
+            var data = [];
+            rows.forEach(function(row) {
+                var timestamp = row[tsKey] || '';
+                var pallet = row[palletKey] || '';
+                var qty = parseFloat(row[qtyKey]);
+                var condition = normalizeCondition(row[condKey]);
+                var destination = row[destKey] || '';
+                var fecha = row[fechaKey] || '';
+                var turno = row[turnoKey] || '';
+
+                if (isNaN(qty)) return;
+
+                if (!fecha && timestamp) {
+                    var match = timestamp.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+                    if (match) fecha = match[1];
+                }
+                if (fecha === '9/17/2026') fecha = '2/17/2026';
+
+                data.push({
+                    timestamp: timestamp,
+                    palletNumber: pallet,
+                    quantity: qty,
+                    condition: condition,
+                    destination: destination,
+                    date: fecha,
+                    shift: turno
+                });
+            });
+
+            allData = data;
+            renderDashboard();
+        }
+
+        // ========== Metodo 2: JSONP via Google Visualization API (fallback) ==========
+        function cellVal(cell) {
+            if (!cell) return '';
+            if (cell.f) return cell.f;
+            if (cell.v === null || cell.v === undefined) return '';
+            return String(cell.v);
+        }
+
+        function cellNum(cell) {
+            if (!cell || cell.v === null || cell.v === undefined) return NaN;
+            return Number(cell.v);
+        }
+
+        function gvizDate(cell) {
+            if (!cell) return '';
+            if (cell.f) return cell.f;
+            if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+                var parts = cell.v.replace('Date(', '').replace(')', '').split(',').map(Number);
+                return (parts[1] + 1) + '/' + parts[2] + '/' + parts[0];
+            }
+            return cell.v ? String(cell.v) : '';
+        }
+
+        function gvizDateTime(cell) {
+            if (!cell) return '';
+            if (cell.f) return cell.f;
+            if (typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+                var parts = cell.v.replace('Date(', '').replace(')', '').split(',').map(Number);
+                var h = parts[3] || 0, m = parts[4] || 0, s = parts[5] || 0;
+                return (parts[1] + 1) + '/' + parts[2] + '/' + parts[0] + ' ' +
+                       h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            }
+            return cell.v ? String(cell.v) : '';
+        }
+
+        function handleSheetData(response) {
+            if (!response || response.status !== 'ok' || !response.table) {
+                document.getElementById('liveDot').className = 'live-dot error';
+                document.getElementById('dateRange').textContent = 'Error en respuesta';
+                return;
+            }
+
+            var rows = response.table.rows;
+            var data = [];
+
+            rows.forEach(function(row) {
+                if (!row.c || !row.c[0]) return;
+                var cells = row.c;
+                var timestamp = gvizDateTime(cells[0]);
+                var pallet = cellVal(cells[1]);
+                var qty = cellNum(cells[2]);
+                var condition = normalizeCondition(cellVal(cells[3]));
+                var destination = cellVal(cells[4]);
+                var fecha = gvizDate(cells[5]);
+                var turno = cellVal(cells[6]);
+
+                if (isNaN(qty)) return;
+
+                if (!fecha && timestamp) {
+                    var match = timestamp.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+                    if (match) fecha = match[1];
+                }
+                if (fecha === '9/17/2026') fecha = '2/17/2026';
+
+                data.push({
+                    timestamp: timestamp,
+                    palletNumber: pallet,
+                    quantity: qty,
+                    condition: condition,
+                    destination: destination,
+                    date: fecha,
+                    shift: turno
+                });
+            });
+
+            allData = data;
+            renderDashboard();
+        }
+
+        function loadViaJSONP() {
+            var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+                      '/gviz/tq?tqx=responseHandler:handleSheetData&sheet=' +
+                      encodeURIComponent(SHEET_NAME);
+            var old = document.getElementById('gsheetScript');
+            if (old) old.remove();
+            var script = document.createElement('script');
+            script.id = 'gsheetScript';
+            script.src = url;
+            script.onerror = function() {
+                document.getElementById('liveDot').className = 'live-dot error';
+                document.getElementById('dateRange').textContent = 'Error de conexion';
+            };
+            document.body.appendChild(script);
+        }
+
+        // ========== Render dashboard despues de cargar datos ==========
+        function renderDashboard() {
+            var dot = document.getElementById('liveDot');
+            var dateRangeEl = document.getElementById('dateRange');
+
+            if (allData.length === 0) {
+                dot.className = 'live-dot error';
+                dateRangeEl.textContent = 'Sin datos';
+                return;
+            }
+
+            var dates = allData.map(function(d) { return d.date; }).filter(Boolean);
+            var uniqueDates = dates.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort();
+            if (uniqueDates.length > 0) {
+                dateRangeEl.textContent = uniqueDates[0] + '  -  ' + uniqueDates[uniqueDates.length - 1];
+            }
+
+            dot.className = 'live-dot connected';
+
+            var savedDest = document.getElementById('filterDestination').value;
+            var savedCond = document.getElementById('filterCondition').value;
+            var savedShift = document.getElementById('filterShift').value;
+            var savedFrom = pickerFrom ? pickerFrom.selectedDates[0] : null;
+            var savedTo = pickerTo ? pickerTo.selectedDates[0] : null;
+
+            updateDashboard(allData);
+            populateFilters(allData);
+            createCharts(allData);
+
+            document.getElementById('filterDestination').value = savedDest;
+            document.getElementById('filterCondition').value = savedCond;
+            document.getElementById('filterShift').value = savedShift;
+            if (savedFrom && pickerFrom) pickerFrom.setDate(savedFrom, false);
+            if (savedTo && pickerTo) pickerTo.setDate(savedTo, false);
+            if (savedFrom || savedTo || savedDest !== 'all' || savedCond !== 'all' || savedShift !== 'all') {
+                applyFilters();
+            }
+
+            console.log('Datos cargados: ' + allData.length + ' registros');
+        }
+
+        // ========== Carga principal: ambos metodos en paralelo ==========
+        function loadData() {
+            // JSONP: rapido, siempre funciona desde file://, pero puede perder algunos N. Pallet
+            loadViaJSONP();
+            // fetch: datos completos (todos los N. Pallet), puede fallar desde file://
+            loadViaFetch().catch(function() {
+                console.log('fetch no disponible, usando datos de JSONP');
+            });
+        }
+
+        function startAutoRefresh() {
+            loadData();
+            setInterval(loadData, REFRESH_INTERVAL);
+        }
+
+        // Calcular indicador de mejora vs ayer
+        function setIndicator(el, todayVal, yesterdayVal) {
+            if (yesterdayVal > 0) {
+                var pct = Math.round(((todayVal - yesterdayVal) / yesterdayVal) * 100);
+                var sign = pct > 0 ? '+' : '';
+                el.textContent = sign + pct + '%';
+                el.className = pct > 0 ? 'kpi-indicator up' : pct < 0 ? 'kpi-indicator down' : 'kpi-indicator neutral';
+            } else if (todayVal > 0) {
+                el.textContent = 'Nuevo';
+                el.className = 'kpi-indicator up';
+            } else {
+                el.textContent = '\u2014';
+                el.className = 'kpi-indicator neutral';
+            }
+        }
+
+        // Actualizar KPIs
+        function updateDashboard(data) {
+            if (!data || data.length === 0) return;
+
+            const totalPallets = data.length;
+            const totalQuantity = data.reduce((sum, item) => sum + item.quantity, 0);
+            const uniqueDates = [...new Set(data.map(item => item.date))].filter(Boolean).length;
+            const avgPerDay = uniqueDates > 0 ? Math.round(totalPallets / uniqueDates) : 0;
+
+            // Enviados Hoy vs Ayer — filtrado por turno seleccionado
+            var now = new Date();
+            var todayStr = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear();
+            var yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            var yesterdayStr = (yesterday.getMonth() + 1) + '/' + yesterday.getDate() + '/' + yesterday.getFullYear();
+
+            var shiftFilter = document.getElementById('filterShift').value;
+            var todayItems = allData.filter(function(d) {
+                if (d.date !== todayStr) return false;
+                if (shiftFilter !== 'all' && d.shift !== shiftFilter) return false;
+                return true;
+            });
+            var yesterdayItems = allData.filter(function(d) {
+                if (d.date !== yesterdayStr) return false;
+                if (shiftFilter !== 'all' && d.shift !== shiftFilter) return false;
+                return true;
+            });
+            var todayCount = todayItems.length;
+            var yesterdayCount = yesterdayItems.length;
+            var todayQty = todayItems.reduce(function(s, d) { return s + d.quantity; }, 0);
+            var yesterdayQty = yesterdayItems.reduce(function(s, d) { return s + d.quantity; }, 0);
+
+            // Indicador pallets hoy vs ayer (mismo turno)
+            var indicatorEl = document.getElementById('todayIndicator');
+            setIndicator(indicatorEl, todayCount, yesterdayCount);
+
+            // Indicador productos hoy vs ayer (mismo turno)
+            var qtyIndicatorEl = document.getElementById('qtyTodayIndicator');
+            setIndicator(qtyIndicatorEl, todayQty, yesterdayQty);
+
+            document.getElementById('totalPallets').textContent = totalPallets.toLocaleString();
+            document.getElementById('totalQuantity').textContent = totalQuantity.toLocaleString();
+            document.getElementById('avgPerDay').textContent = avgPerDay;
+            document.getElementById('sentToday').textContent = todayCount.toLocaleString();
+            document.getElementById('qtyToday').textContent = todayQty.toLocaleString();
+        }
+
+        // Poblar filtros
+        var pickerFrom = null;
+        var pickerTo = null;
+
+        function populateFilters(data) {
+            const dates = [...new Set(data.map(item => item.date))].filter(Boolean).sort();
+            const destinations = [...new Set(data.map(item => item.destination))].filter(Boolean);
+            const conditions = [...new Set(data.map(item => item.condition))].filter(Boolean);
+            const shifts = [...new Set(data.map(item => item.shift))].filter(Boolean);
+
+            initDateRangeFilter(dates);
+            fillSelect('filterDestination', destinations, 'Todos');
+            fillSelect('filterCondition', conditions, 'Todas');
+            fillSelect('filterShift', shifts, 'Todos');
+        }
+
+        // --- Calendario Desde / Hasta ---
+        function parseDateStr(str) {
+            var parts = str.split('/');
+            if (parts.length !== 3) return null;
+            return new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+        }
+
+        function initDateRangeFilter(dates) {
+            var enableDates = dates.map(function(d) { return parseDateStr(d); }).filter(Boolean);
+            var minDate = enableDates.length > 0 ? enableDates[0] : undefined;
+            var maxDate = enableDates.length > 0 ? enableDates[enableDates.length - 1] : undefined;
+
+            var commonOpts = {
+                locale: 'es',
+                dateFormat: 'j M Y',
+                enable: enableDates,
+                allowInput: false,
+                onChange: function() { applyFilters(); }
+            };
+
+            if (pickerFrom) pickerFrom.destroy();
+            if (pickerTo) pickerTo.destroy();
+
+            pickerFrom = flatpickr('#filterDateFrom', Object.assign({}, commonOpts, {
+                defaultDate: null,
+                onChange: function(sel) {
+                    if (sel[0] && pickerTo) pickerTo.set('minDate', sel[0]);
+                    applyFilters();
+                }
+            }));
+
+            pickerTo = flatpickr('#filterDateTo', Object.assign({}, commonOpts, {
+                defaultDate: null,
+                onChange: function(sel) {
+                    if (sel[0] && pickerFrom) pickerFrom.set('maxDate', sel[0]);
+                    applyFilters();
+                }
+            }));
+        }
+
+        function getDateRange() {
+            var from = pickerFrom && pickerFrom.selectedDates[0] ? pickerFrom.selectedDates[0] : null;
+            var to = pickerTo && pickerTo.selectedDates[0] ? pickerTo.selectedDates[0] : null;
+            return { from: from, to: to };
+        }
+
+        function fillSelect(id, items, allLabel) {
+            const select = document.getElementById(id);
+            const current = select.value;
+            select.innerHTML = '';
+            const defOpt = document.createElement('option');
+            defOpt.value = 'all';
+            defOpt.textContent = allLabel;
+            select.appendChild(defOpt);
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                select.appendChild(opt);
+            });
+            if (current && [...select.options].some(o => o.value === current)) {
+                select.value = current;
+            }
+        }
+
+        // Crear graficos
+        function createCharts(data) {
+            createDestinationChart(data);
+            createConditionChart(data);
+            createDateChart(data);
+            createQuantityDestChart(data);
+            updateTable(data);
+        }
+
+        function createDestinationChart(data) {
+            const destinations = {};
+            data.forEach(item => {
+                destinations[item.destination] = (destinations[item.destination] || 0) + 1;
+            });
+
+            const ctx = document.getElementById('destinationChart');
+            if (charts.destination) charts.destination.destroy();
+
+            charts.destination = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(destinations),
+                    datasets: [{
+                        data: Object.values(destinations),
+                        backgroundColor: ['#3b82f6','#f59e0b','#8b5cf6','#10b981','#06b6d4','#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 16, usePointStyle: true, pointStyle: 'circle',
+                                font: { family: "'Inter', sans-serif", size: 11, weight: '500' },
+                                color: '#6b7280'
+                            }
+                        },
+                        datalabels: {
+                            display: true,
+                            color: '#fff',
+                            font: { family: "'Inter', sans-serif", size: 12, weight: '700' },
+                            formatter: function(value) { return value; }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createConditionChart(data) {
+            const conditions = {};
+            data.forEach(item => { conditions[item.condition] = (conditions[item.condition] || 0) + 1; });
+
+            const ctx = document.getElementById('conditionChart');
+            if (charts.condition) charts.condition.destroy();
+
+            var maxCond = Math.max.apply(null, Object.values(conditions));
+
+            charts.condition = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(conditions),
+                    datasets: [{ label: 'Pallets', data: Object.values(conditions), backgroundColor: '#6366f1', borderRadius: 4, maxBarThickness: 40 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: true,
+                    layout: { padding: { top: 20 } },
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            display: true,
+                            anchor: 'end', align: 'top', offset: 2,
+                            color: '#374151',
+                            font: { family: "'Inter', sans-serif", size: 11, weight: '600' }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { family: "'Inter', sans-serif", size: 10, weight: '500' }, color: '#9ca3af' } },
+                        y: { grid: { color: '#f0f1f3' }, suggestedMax: maxCond * 1.15, ticks: { font: { family: "'Inter', sans-serif", size: 10 }, color: '#9ca3af' } }
+                    }
+                }
+            });
+        }
+
+        // Regresion lineal simple para linea de tendencia
+        function linearTrend(values) {
+            var n = values.length;
+            if (n < 2) return values.slice();
+            var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for (var i = 0; i < n; i++) {
+                sumX += i;
+                sumY += values[i];
+                sumXY += i * values[i];
+                sumX2 += i * i;
+            }
+            var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            var intercept = (sumY - slope * sumX) / n;
+            var trend = [];
+            for (var i = 0; i < n; i++) {
+                trend.push(Math.round((slope * i + intercept) * 10) / 10);
+            }
+            return trend;
+        }
+
+        function createDateChart(data) {
+            const dates = {};
+            data.forEach(item => { dates[item.date] = (dates[item.date] || 0) + 1; });
+            const sortedDates = Object.keys(dates).sort();
+            const values = sortedDates.map(d => dates[d]);
+            const trendData = linearTrend(values);
+
+            const ctx = document.getElementById('dateChart');
+            if (charts.date) charts.date.destroy();
+
+            charts.date = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: 'Pallets por Dia', data: values,
+                        borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)',
+                        fill: true, tension: 0.3, borderWidth: 2,
+                        pointBackgroundColor: '#3b82f6', pointBorderColor: '#fff',
+                        pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6
+                    }, {
+                        label: 'Tendencia', data: trendData,
+                        borderColor: '#ef4444', borderWidth: 2,
+                        borderDash: [6, 4],
+                        pointRadius: 0, pointHoverRadius: 0,
+                        fill: false, tension: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true, position: 'bottom',
+                            labels: {
+                                padding: 12, usePointStyle: true, pointStyle: 'line',
+                                font: { family: "'Inter', sans-serif", size: 10, weight: '500' },
+                                color: '#6b7280'
+                            }
+                        },
+                        datalabels: {
+                            display: function(ctx) { return ctx.datasetIndex === 0; },
+                            anchor: 'end', align: 'top', offset: 2,
+                            color: '#374151',
+                            font: { family: "'Inter', sans-serif", size: 10, weight: '600' }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { family: "'Inter', sans-serif", size: 10, weight: '500' }, color: '#9ca3af' } },
+                        y: { grid: { color: '#f0f1f3' }, ticks: { font: { family: "'Inter', sans-serif", size: 10 }, color: '#9ca3af' } }
+                    }
+                }
+            });
+        }
+
+        function createQuantityDestChart(data) {
+            const qbd = {};
+            data.forEach(item => { qbd[item.destination] = (qbd[item.destination] || 0) + item.quantity; });
+
+            const ctx = document.getElementById('quantityDestChart');
+            if (charts.quantityDest) charts.quantityDest.destroy();
+
+            var maxQty = Math.max.apply(null, Object.values(qbd));
+
+            charts.quantityDest = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(qbd),
+                    datasets: [{ label: 'Cantidad Total', data: Object.values(qbd),
+                        backgroundColor: ['#3b82f6','#f59e0b','#8b5cf6','#10b981','#06b6d4','#ef4444'],
+                        borderRadius: 4, maxBarThickness: 28
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: true, indexAxis: 'y',
+                    layout: { padding: { right: 40 } },
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            display: true,
+                            anchor: 'end', align: 'right', offset: 4,
+                            color: '#374151',
+                            font: { family: "'Inter', sans-serif", size: 11, weight: '600' },
+                            formatter: function(value) { return value.toLocaleString(); }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#f0f1f3' }, suggestedMax: maxQty * 1.15, ticks: { font: { family: "'Inter', sans-serif", size: 10 }, color: '#9ca3af' } },
+                        y: { grid: { display: false }, ticks: { font: { family: "'Inter', sans-serif", size: 10, weight: '500' }, color: '#9ca3af' } }
+                    }
+                }
+            });
+        }
+
+        var tableExpanded = false;
+        var currentTableData = [];
+
+        function updateTable(data) {
+            currentTableData = data;
+            tableExpanded = false;
+            document.getElementById('btnToggleTable').textContent = 'Ver todos (' + data.length + ')';
+            renderTableRows(data, 10);
+        }
+
+        function renderTableRows(data, limit) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            var reversed = data.slice().reverse();
+            var items = limit ? reversed.slice(0, limit) : reversed;
+
+            document.getElementById('tableCount').textContent = '— Mostrando ' + items.length + ' de ' + data.length;
+
+            items.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = item.timestamp;
+                row.insertCell(1).textContent = item.palletNumber;
+                row.insertCell(2).textContent = item.quantity;
+                row.insertCell(3).textContent = item.condition;
+
+                const destCell = row.insertCell(4);
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = item.destination;
+
+                if (item.destination.includes('Almac')) badge.className += ' badge-almacen';
+                else if (item.destination.includes('TRG')) badge.className += ' badge-trg';
+                else if (item.destination.includes('HV')) badge.className += ' badge-hv';
+                else if (item.destination.includes('Pedido')) badge.className += ' badge-pedido';
+                else if (item.destination.includes('Orden')) badge.className += ' badge-orden';
+                else if (item.destination.includes('BOX')) badge.className += ' badge-box';
+
+                destCell.appendChild(badge);
+                row.insertCell(5).textContent = item.date;
+                row.insertCell(6).textContent = item.shift;
+            });
+        }
+
+        function toggleTableView() {
+            tableExpanded = !tableExpanded;
+            var btn = document.getElementById('btnToggleTable');
+            if (tableExpanded) {
+                renderTableRows(currentTableData, null);
+                btn.textContent = 'Ver ultimos 10';
+            } else {
+                renderTableRows(currentTableData, 10);
+                btn.textContent = 'Ver todos (' + currentTableData.length + ')';
+            }
+        }
+
+        // Filtros
+        function applyFilters() {
+            const range = getDateRange();
+            const destf = document.getElementById('filterDestination').value;
+            const cf = document.getElementById('filterCondition').value;
+            const sf = document.getElementById('filterShift').value;
+
+            let filtered = allData;
+
+            if (range.from || range.to) {
+                filtered = filtered.filter(function(i) {
+                    var d = parseDateStr(i.date);
+                    if (!d) return false;
+                    if (range.from && d < range.from) return false;
+                    if (range.to && d > range.to) return false;
+                    return true;
+                });
+            }
+
+            if (destf !== 'all') filtered = filtered.filter(i => i.destination === destf);
+            if (cf !== 'all') filtered = filtered.filter(i => i.condition === cf);
+            if (sf !== 'all') filtered = filtered.filter(i => i.shift === sf);
+
+            updateDashboard(filtered);
+            createCharts(filtered);
+        }
+
+        function clearAllFilters() {
+            if (pickerFrom) pickerFrom.clear();
+            if (pickerTo) pickerTo.clear();
+            if (pickerFrom) pickerFrom.set('maxDate', null);
+            if (pickerTo) pickerTo.set('minDate', null);
+            document.getElementById('filterDestination').value = 'all';
+            document.getElementById('filterCondition').value = 'all';
+            document.getElementById('filterShift').value = 'all';
+            updateDashboard(allData);
+            createCharts(allData);
+        }
+
+        document.getElementById('filterDestination').addEventListener('change', applyFilters);
+        document.getElementById('filterCondition').addEventListener('change', applyFilters);
+        document.getElementById('filterShift').addEventListener('change', applyFilters);
+
+        // Iniciar
+        startAutoRefresh();
+    </script>
+</body>
+</html>
