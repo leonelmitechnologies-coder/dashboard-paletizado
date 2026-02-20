@@ -830,7 +830,7 @@
 
         // Actualizar KPIs
         function updateDashboard(data) {
-            if (!data || data.length === 0) return;
+            if (!data) data = [];
 
             const totalPallets = data.length;
             const totalQuantity = data.reduce((sum, item) => sum + item.quantity, 0);
