@@ -77,6 +77,43 @@
             50% { opacity: 0.5; }
         }
 
+        .btn-refresh {
+            padding: 5px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            color: #6b7280;
+            font-family: inherit;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-refresh:hover {
+            background: #6366f1;
+            color: #fff;
+            border-color: #6366f1;
+        }
+
+        .btn-refresh svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.3s;
+        }
+
+        .btn-refresh.loading svg {
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .date-range {
             font-size: 0.8rem;
             font-weight: 500;
@@ -481,6 +518,10 @@
         <header>
             <h1>Dashboard de Produccion de Paletizado</h1>
             <div class="header-right">
+                <button class="btn-refresh" id="btnRefresh" onclick="manualRefresh()" title="Actualizar datos">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    Actualizar
+                </button>
                 <span class="live-dot" id="liveDot"></span>
                 <p class="date-range" id="dateRange">Cargando...</p>
             </div>
@@ -810,6 +851,17 @@
         function startAutoRefresh() {
             loadData();
             setInterval(loadData, REFRESH_INTERVAL);
+        }
+
+        function manualRefresh() {
+            var btn = document.getElementById('btnRefresh');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            loadData();
+            setTimeout(function() {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }, 2000);
         }
 
         // Calcular indicador de mejora vs ayer
